@@ -1,6 +1,9 @@
-# Langflow VS Code
+# Langflow VS Code Plugin
 
 Browse Langflow projects and flows, inspect flow components, and edit component Python code directly from VS Code.
+
+<img width="1234" height="980" alt="Screenshot 2026-01-21 at 23 47 24" src="https://github.com/user-attachments/assets/98e1cc1b-5436-478d-a81c-ebad3aa33473" />
+
 
 ## Usage
 
