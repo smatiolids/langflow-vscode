@@ -7,11 +7,49 @@ Browse Langflow projects and flows, inspect flow components, and edit component 
 
 ## Usage
 
-1. Use the "Connection" view in the Langflow sidebar to set the base URL and API key.
-2. Set `Langflow > Base Url` in settings if you prefer to manage it via Settings.
-3. Expand the "Projects & Flows" view to select a project, then expand the flow to see components.
-4. Pick a component under the flow to open its Python code.
-5. Save the file to push changes back to Langflow.
+### Setup
+
+1. Open the Langflow view container in the Activity Bar.
+2. In the "Connection" view, set:
+   - Base URL (ex: `http://localhost:3000`)
+   - API key
+   - Optional: Langflow venv path (used for Python syntax checks)
+3. If you prefer Settings, configure:
+   - `Langflow: Base Url`
+   - `Langflow: Venv Path`
+
+### Browse and edit flows
+
+ATTENTION: Before editing a component code, close it on the Langflow UI.
+
+1. Expand "Projects & Flows" and pick a project.
+2. Select a flow to load its components.
+3. Click a component to open its Python code in a temp file.
+4. Save the file to push changes back to Langflow.
+
+### Edit component properties
+
+1. Select a component in the tree.
+2. Use the "Properties" view to edit fields.
+3. Save to update the flow definition in Langflow.
+
+### Run a flow
+
+1. Select a flow in the tree.
+2. Use the "Run Flow" view to enter input values.
+3. Click Run and check the "Langflow Run" output channel for results.
+
+### Open flow JSON
+
+- Use "Langflow: Open Flow JSON" from the tree context menu to open the full flow definition.
+- Save the JSON file to update the flow in Langflow.
+
+### Commands
+
+- `Langflow: Connect` - prompt for API key and refresh data
+- `Langflow: Set API Key` - update the stored API key
+- `Langflow: Refresh` - reload projects and flows
+- `Langflow: Open Flow JSON` - open the selected flow definition
 
 ## Testing locally
 
