@@ -5,6 +5,7 @@ node_modules/
 dist/
 out/
 
+samples
 # VS Code extension packaging
 *.vsix
 
