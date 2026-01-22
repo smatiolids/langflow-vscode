@@ -26,6 +26,10 @@ Notes:
 - You need a reachable Langflow instance and a valid API key.
 - There are no automated tests yet; this is manual validation via the Dev Host.
 
+## Publishing
+
+See `PUBLISHING.md` for the release checklist and Marketplace steps.
+
 ## Notes
 
 - The extension uses Langflow DevOps API endpoints (`/api/v1/...`).

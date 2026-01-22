@@ -70,8 +70,8 @@ export class LangflowExplorerProvider implements vscode.TreeDataProvider<Explore
     const item = new vscode.TreeItem(element.component.name, vscode.TreeItemCollapsibleState.None);
     item.contextValue = "langflowComponent";
     item.command = {
-      title: "Open Component",
-      command: "langflow.openComponent",
+      title: "Select Component",
+      command: "langflow.selectComponent",
       arguments: [element.component, element.flow.id]
     };
     return item;

@@ -4,6 +4,7 @@
   "description": "Browse Langflow projects/flows and edit component code",
   "version": "0.0.1",
   "publisher": "local",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -44,12 +45,21 @@
         "title": "Langflow: Select Flow"
       },
       {
+        "command": "langflow.selectComponent",
+        "title": "Langflow: Select Component"
+      },
+      {
         "command": "langflow.openFlow",
         "title": "Langflow: Open Flow JSON"
       }
     ],
     "menus": {
       "view/item/context": [
+        {
+          "command": "langflow.openComponent",
+          "when": "view == langflowExplorer && viewItem == langflowComponent",
+          "group": "navigation"
+        },
         {
           "command": "langflow.openFlow",
           "when": "view == langflowExplorer && viewItem == langflowFlow",
@@ -96,6 +106,11 @@
           "type": "string",
           "default": "http://localhost:3000",
           "description": "Base URL for the Langflow instance"
+        },
+        "langflow.venvPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Langflow Python virtual environment"
         }
       }
     }

@@ -4,22 +4,26 @@ export class LangflowConnectionView implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private baseUrl: string;
   private hasApiKey: boolean;
-  private readonly saveEmitter = new vscode.EventEmitter<{ baseUrl: string; apiKey: string }>();
+  private venvPath: string;
+  private readonly saveEmitter = new vscode.EventEmitter<{ baseUrl: string; apiKey: string; venvPath: string }>();
   readonly onDidSave = this.saveEmitter.event;
 
-  constructor(baseUrl: string, hasApiKey: boolean) {
+  constructor(baseUrl: string, hasApiKey: boolean, venvPath: string) {
     this.baseUrl = baseUrl;
     this.hasApiKey = hasApiKey;
+    this.venvPath = venvPath;
   }
 
-  update(baseUrl: string, hasApiKey: boolean) {
+  update(baseUrl: string, hasApiKey: boolean, venvPath: string) {
     this.baseUrl = baseUrl;
     this.hasApiKey = hasApiKey;
+    this.venvPath = venvPath;
     if (this.view) {
       this.view.webview.postMessage({
         type: "state",
         baseUrl: this.baseUrl,
-        hasApiKey: this.hasApiKey
+        hasApiKey: this.hasApiKey,
+        venvPath: this.venvPath
       });
     }
   }
@@ -34,7 +38,8 @@ export class LangflowConnectionView implements vscode.WebviewViewProvider {
       if (message?.type === "save") {
         this.saveEmitter.fire({
           baseUrl: typeof message.baseUrl === "string" ? message.baseUrl : "",
-          apiKey: typeof message.apiKey === "string" ? message.apiKey : ""
+          apiKey: typeof message.apiKey === "string" ? message.apiKey : "",
+          venvPath: typeof message.venvPath === "string" ? message.venvPath : ""
         });
       }
     });
@@ -43,6 +48,7 @@ export class LangflowConnectionView implements vscode.WebviewViewProvider {
   private renderHtml(webview: vscode.Webview): string {
     const nonce = String(Date.now());
     const escapedBaseUrl = escapeHtml(this.baseUrl);
+    const escapedVenvPath = escapeHtml(this.venvPath);
     const apiKeyPlaceholder = this.hasApiKey ? "(saved)" : "";
 
     return `<!DOCTYPE html>
@@ -102,6 +108,9 @@ export class LangflowConnectionView implements vscode.WebviewViewProvider {
     <label for="apiKey">API Key</label>
     <input id="apiKey" name="apiKey" type="password" placeholder="${apiKeyPlaceholder}" />
 
+    <label for="venvPath">Langflow venv path</label>
+    <input id="venvPath" name="venvPath" type="text" value="${escapedVenvPath}" />
+
     <button type="submit">Save</button>
     <div class="hint">Save to refresh projects and flows.</div>
   </form>
@@ -111,13 +120,15 @@ export class LangflowConnectionView implements vscode.WebviewViewProvider {
     const form = document.getElementById('connection-form');
     const baseUrlInput = document.getElementById('baseUrl');
     const apiKeyInput = document.getElementById('apiKey');
+    const venvPathInput = document.getElementById('venvPath');
 
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       vscode.postMessage({
         type: 'save',
         baseUrl: baseUrlInput.value || '',
-        apiKey: apiKeyInput.value || ''
+        apiKey: apiKeyInput.value || '',
+        venvPath: venvPathInput.value || ''
       });
     });
 
@@ -131,6 +142,9 @@ export class LangflowConnectionView implements vscode.WebviewViewProvider {
       }
       apiKeyInput.placeholder = message.hasApiKey ? '(saved)' : '';
       apiKeyInput.value = '';
+      if (typeof message.venvPath === 'string') {
+        venvPathInput.value = message.venvPath;
+      }
     });
   </script>
 </body>

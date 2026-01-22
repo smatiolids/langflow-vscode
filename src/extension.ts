@@ -26,12 +26,13 @@ export async function activate(context: vscode.ExtensionContext) {
   const state = new LangflowState();
   const config = vscode.workspace.getConfiguration("langflow");
   let baseUrl = config.get<string>("baseUrl", "http://localhost:3000");
+  let venvPath = config.get<string>("venvPath", "");
   let currentApiKey = await context.secrets.get(API_KEY_SECRET);
   const client = new LangflowClient(baseUrl, currentApiKey ?? undefined);
 
   const explorerProvider = new LangflowExplorerProvider(client, state);
   const documentProvider = new ComponentDocumentProvider();
-  const connectionView = new LangflowConnectionView(baseUrl, Boolean(currentApiKey));
+  const connectionView = new LangflowConnectionView(baseUrl, Boolean(currentApiKey), venvPath);
   const propertiesView = new LangflowPropertiesView();
   const runFlowView = new LangflowRunFlowView();
   const flowFileMap = new Map<string, string>();
@@ -39,6 +40,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const diagnostics = vscode.languages.createDiagnosticCollection("langflow");
   const execFileAsync = promisify(execFile);
   let lastFlowId: string | null = null;
+  let lastComponentSelection: { flowId: string; componentId: string } | null = null;
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("langflowExplorer", explorerProvider),
@@ -51,12 +53,12 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("langflow.setApiKey", async () => {
       currentApiKey = await promptForApiKey(context, client, true, currentApiKey ?? undefined);
-      connectionView.update(baseUrl, Boolean(currentApiKey));
+      connectionView.update(baseUrl, Boolean(currentApiKey), venvPath);
       explorerProvider.refresh();
     }),
     vscode.commands.registerCommand("langflow.connect", async () => {
       currentApiKey = await promptForApiKey(context, client, true, currentApiKey ?? undefined);
-      connectionView.update(baseUrl, Boolean(currentApiKey));
+      connectionView.update(baseUrl, Boolean(currentApiKey), venvPath);
       explorerProvider.refresh();
     }),
     vscode.commands.registerCommand("langflow.refresh", () => {
@@ -75,6 +77,32 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage(`Failed to load flow: ${getErrorMessage(error)}`);
       }
     }),
+    vscode.commands.registerCommand(
+      "langflow.selectComponent",
+      async (component: LangflowComponent, flowId?: string) => {
+        const resolvedFlowId = flowId ?? state.getSelection().flow?.id;
+        if (!resolvedFlowId) {
+          vscode.window.showWarningMessage("Select a flow before selecting a component.");
+          return;
+        }
+        if (
+          lastComponentSelection &&
+          lastComponentSelection.flowId === resolvedFlowId &&
+          lastComponentSelection.componentId === component.id
+        ) {
+          await openComponentCode(component, resolvedFlowId, componentFileMap);
+          return;
+        }
+        propertiesView.update({
+          flowId: resolvedFlowId,
+          componentId: component.id,
+          flowName: state.getSelection().flow?.name ?? "",
+          componentName: component.name,
+          fields: extractComponentFields(component)
+        });
+        lastComponentSelection = { flowId: resolvedFlowId, componentId: component.id };
+      }
+    ),
     vscode.commands.registerCommand("langflow.openFlow", async (node?: { flow?: LangflowFlow }) => {
       try {
         const flow = node?.flow ?? state.getSelection().flow;
@@ -109,41 +137,22 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      if (state.getSelection().flow?.id !== resolvedFlowId) {
-        propertiesView.update({ flowId: "", componentId: "", flowName: "", componentName: "", fields: [] });
-        runFlowView.update({ flowId: "", flowName: "", inputs: [] });
-      }
-
-      await promptForPythonExtension();
-
-      propertiesView.update({
-        flowId: resolvedFlowId,
-        componentId: component.id,
-        flowName: state.getSelection().flow?.name ?? "",
-        componentName: component.name,
-        fields: extractComponentFields(component)
-      });
-
-      const tempDir = await ensureTempDir();
-      const safeName = sanitizeFileName(`${resolvedFlowId}-${component.id || component.name}.py`);
-      const filePath = path.join(tempDir, safeName);
-      await fs.writeFile(filePath, component.code || "", "utf8");
-
-      const uri = vscode.Uri.file(filePath);
-      componentFileMap.set(uri.fsPath, { flowId: resolvedFlowId, component });
-      const doc = await vscode.workspace.openTextDocument(uri);
-      await vscode.languages.setTextDocumentLanguage(doc, "python");
-      await vscode.window.showTextDocument(doc, { preview: false });
+      await openComponentCode(component, resolvedFlowId, componentFileMap);
     })
   );
 
   context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((event) => {
+    vscode.workspace.onDidChangeConfiguration(async (event) => {
       if (event.affectsConfiguration("langflow.baseUrl")) {
         const updated = vscode.workspace.getConfiguration("langflow").get<string>("baseUrl", baseUrl);
         baseUrl = updated;
         client.configure(updated, currentApiKey ?? undefined);
-        connectionView.update(updated, Boolean(currentApiKey));
+        connectionView.update(updated, Boolean(currentApiKey), venvPath);
+      }
+      if (event.affectsConfiguration("langflow.venvPath")) {
+        venvPath = vscode.workspace.getConfiguration("langflow").get<string>("venvPath", venvPath);
+        await applyVenvPathToPython(venvPath);
+        connectionView.update(baseUrl, Boolean(currentApiKey), venvPath);
       }
     })
   );
@@ -155,7 +164,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       const selection = state.getSelection();
       if (selection.flow) {
-        connectionView.update(baseUrl, Boolean(currentApiKey));
+        connectionView.update(baseUrl, Boolean(currentApiKey), venvPath);
       }
     })
   );
@@ -164,7 +173,17 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidSaveTextDocument(async (document) => {
       if (document.uri.scheme !== "langflow") {
         if (document.uri.scheme === "file") {
-          if (await handleComponentFileSave(document, componentFileMap, client, state, diagnostics, execFileAsync)) {
+          if (
+            await handleComponentFileSave(
+              document,
+              componentFileMap,
+              client,
+              state,
+              diagnostics,
+              execFileAsync,
+              venvPath
+            )
+          ) {
             return;
           }
           await handleFlowFileSave(document, flowFileMap, client, state);
@@ -204,7 +223,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    connectionView.onDidSave(async ({ baseUrl: submittedUrl, apiKey }) => {
+    connectionView.onDidSave(async ({ baseUrl: submittedUrl, apiKey, venvPath: submittedVenvPath }) => {
       const trimmedUrl = submittedUrl.trim();
       if (trimmedUrl && trimmedUrl !== baseUrl) {
         baseUrl = trimmedUrl;
@@ -217,8 +236,15 @@ export async function activate(context: vscode.ExtensionContext) {
         await context.secrets.store(API_KEY_SECRET, currentApiKey);
       }
 
+      const trimmedVenvPath = submittedVenvPath.trim();
+      if (trimmedVenvPath !== venvPath) {
+        venvPath = trimmedVenvPath;
+        await config.update("venvPath", venvPath, vscode.ConfigurationTarget.Global);
+        await applyVenvPathToPython(venvPath);
+      }
+
       client.configure(baseUrl, currentApiKey ?? undefined);
-      connectionView.update(baseUrl, Boolean(currentApiKey));
+      connectionView.update(baseUrl, Boolean(currentApiKey), venvPath);
       explorerProvider.refresh();
     })
   );
@@ -305,7 +331,8 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  connectionView.update(baseUrl, Boolean(currentApiKey));
+  await applyVenvPathToPython(venvPath);
+  connectionView.update(baseUrl, Boolean(currentApiKey), venvPath);
 }
 
 export function deactivate() {}
@@ -342,6 +369,25 @@ function getErrorMessage(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+async function openComponentCode(
+  component: LangflowComponent,
+  flowId: string,
+  componentFileMap: Map<string, { flowId: string; component: LangflowComponent }>
+) {
+  await promptForPythonExtension();
+
+  const tempDir = await ensureTempDir();
+  const safeName = sanitizeFileName(`${flowId}-${component.id || component.name}.py`);
+  const filePath = path.join(tempDir, safeName);
+  await fs.writeFile(filePath, component.code || "", "utf8");
+
+  const uri = vscode.Uri.file(filePath);
+  componentFileMap.set(uri.fsPath, { flowId, component });
+  const doc = await vscode.workspace.openTextDocument(uri);
+  await vscode.languages.setTextDocumentLanguage(doc, "python");
+  await vscode.window.showTextDocument(doc, { preview: false });
 }
 
 let runOutputChannel: vscode.OutputChannel | null = null;
@@ -387,13 +433,66 @@ async function loadFlowData(flowId: string, client: LangflowClient) {
   return { definition };
 }
 
+async function applyVenvPathToPython(venvPath: string) {
+  const interpreter = await resolvePythonInterpreter(venvPath);
+  if (!interpreter) {
+    return;
+  }
+
+  const pythonConfig = vscode.workspace.getConfiguration("python");
+  const current = pythonConfig.get<string>("defaultInterpreterPath", "");
+  if (current === interpreter) {
+    return;
+  }
+
+  const target =
+    vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0
+      ? vscode.ConfigurationTarget.Workspace
+      : vscode.ConfigurationTarget.Global;
+  await pythonConfig.update("defaultInterpreterPath", interpreter, target);
+}
+
+async function getPythonCommands(venvPath: string): Promise<string[]> {
+  const commands: string[] = [];
+  const interpreter = await resolvePythonInterpreter(venvPath);
+  if (interpreter) {
+    commands.push(interpreter);
+  }
+  commands.push("python3", "python");
+  return commands;
+}
+
+async function resolvePythonInterpreter(venvPath: string): Promise<string | null> {
+  const trimmedPath = venvPath.trim();
+  if (!trimmedPath) {
+    return null;
+  }
+
+  const candidates =
+    process.platform === "win32"
+      ? [path.join(trimmedPath, "Scripts", "python.exe"), path.join(trimmedPath, "Scripts", "python")]
+      : [path.join(trimmedPath, "bin", "python3"), path.join(trimmedPath, "bin", "python")];
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
 async function handleComponentFileSave(
   document: vscode.TextDocument,
   componentFileMap: Map<string, { flowId: string; component: LangflowComponent }>,
   client: LangflowClient,
   state: LangflowState,
   diagnostics: vscode.DiagnosticCollection,
-  execFileAsync: (file: string, args: string[]) => Promise<{ stdout: string; stderr: string }>
+  execFileAsync: (file: string, args: string[]) => Promise<{ stdout: string; stderr: string }>,
+  venvPath: string
 ): Promise<boolean> {
   const entry = componentFileMap.get(document.uri.fsPath);
   if (!entry) {
@@ -401,7 +500,7 @@ async function handleComponentFileSave(
   }
 
   diagnostics.delete(document.uri);
-  const syntaxResult = await checkPythonSyntax(document, diagnostics, execFileAsync);
+  const syntaxResult = await checkPythonSyntax(document, diagnostics, execFileAsync, venvPath);
   if (!syntaxResult) {
     return true;
   }
@@ -410,29 +509,16 @@ async function handleComponentFileSave(
   const existing = state.getFlowData(entry.flowId);
 
   try {
-    if (existing) {
-      updateComponentCode(entry.component, updatedCode);
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "Updating Langflow component",
-          cancellable: false
-        },
-        async () => {
-          await client.updateFlow(entry.flowId, existing.definition);
-        }
-      );
-      state.updateFlowDefinition(entry.flowId, existing.definition);
-      return true;
-    }
-
-    const definition = await client.getFlow(entry.flowId);
+    const definition = existing?.definition ?? (await client.getFlow(entry.flowId));
     if (!definition) {
       vscode.window.showWarningMessage("Unable to load flow data to update component.");
       return true;
     }
+
     const components = extractComponents(definition);
-    const match = components.find((component) => component.id === entry.component.id);
+    const match = entry.component.id
+      ? components.find((component) => component.id === entry.component.id)
+      : components.find((component) => component.name === entry.component.name);
     if (!match) {
       vscode.window.showWarningMessage("Component not found in flow definition.");
       return true;
@@ -444,10 +530,10 @@ async function handleComponentFileSave(
         title: "Updating Langflow component",
         cancellable: false
       },
-      async () => {
-        await client.updateFlow(entry.flowId, definition);
-      }
-    );
+        async () => {
+          await client.updateFlow(entry.flowId, definition);
+        }
+      );
     state.updateFlowDefinition(entry.flowId, definition);
     return true;
   } catch (error) {
@@ -459,9 +545,10 @@ async function handleComponentFileSave(
 async function checkPythonSyntax(
   document: vscode.TextDocument,
   diagnostics: vscode.DiagnosticCollection,
-  execFileAsync: (file: string, args: string[]) => Promise<{ stdout: string; stderr: string }>
+  execFileAsync: (file: string, args: string[]) => Promise<{ stdout: string; stderr: string }>,
+  venvPath: string
 ): Promise<boolean> {
-  const pythonCommands = ["python3", "python"];
+  const pythonCommands = await getPythonCommands(venvPath);
   let lastError: unknown = null;
 
   for (const cmd of pythonCommands) {
