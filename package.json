@@ -1,0 +1,114 @@
+{
+  "name": "langflow-vscode",
+  "displayName": "Langflow VS Code",
+  "description": "Browse Langflow projects/flows and edit component code",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:langflow.connect",
+    "onCommand:langflow.setApiKey",
+    "onCommand:langflow.refresh",
+    "onView:langflowExplorer",
+    "onView:langflowConnection",
+    "onView:langflowProperties",
+    "onView:langflowRunFlow"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "langflow.connect",
+        "title": "Langflow: Connect"
+      },
+      {
+        "command": "langflow.setApiKey",
+        "title": "Langflow: Set API Key"
+      },
+      {
+        "command": "langflow.refresh",
+        "title": "Langflow: Refresh"
+      },
+      {
+        "command": "langflow.openComponent",
+        "title": "Langflow: Open Component"
+      },
+      {
+        "command": "langflow.selectFlow",
+        "title": "Langflow: Select Flow"
+      },
+      {
+        "command": "langflow.openFlow",
+        "title": "Langflow: Open Flow JSON"
+      }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "langflow.openFlow",
+          "when": "view == langflowExplorer && viewItem == langflowFlow",
+          "group": "navigation"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "langflow",
+          "title": "Langflow",
+          "icon": "resources/langflow.svg"
+        }
+      ]
+    },
+    "views": {
+      "langflow": [
+        {
+          "id": "langflowConnection",
+          "name": "Connection",
+          "type": "webview"
+        },
+        {
+          "id": "langflowExplorer",
+          "name": "Projects & Flows"
+        },
+        {
+          "id": "langflowProperties",
+          "name": "Properties",
+          "type": "webview"
+        },
+        {
+          "id": "langflowRunFlow",
+          "name": "Run Flow",
+          "type": "webview"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Langflow",
+      "properties": {
+        "langflow.baseUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "Base URL for the Langflow instance"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^18.18.13",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.2.2"
+  }
+}

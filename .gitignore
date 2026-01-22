@@ -1,0 +1,26 @@
+# Node
+node_modules/
+
+# Build output
+dist/
+out/
+
+# VS Code extension packaging
+*.vsix
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+
+# Env
+.env
+
+# VS Code
+.vscode/
+
+# Coverage
+coverage/
