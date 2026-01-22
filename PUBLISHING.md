@@ -54,3 +54,17 @@ vsce publish <version>
 
 - Install the `.vsix` locally: `code --install-extension <file>.vsix`.
 - Check that the views, commands, and webviews load as expected.
+
+## VS Code-based editors
+
+### Cursor
+
+1. Package the extension with `vsce package`.
+2. In Cursor, open the Command Palette and run `Extensions: Install from VSIX...`.
+3. Select the generated `.vsix` file and reload the window if prompted.
+
+### IBM BOB (VS Code based)
+
+1. Package the extension with `vsce package`.
+2. In IBM BOB, open the Command Palette and run `Extensions: Install from VSIX...`.
+3. Select the generated `.vsix` file and reload the window if prompted.
