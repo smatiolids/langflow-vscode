@@ -3,8 +3,13 @@
   "displayName": "Langflow VS Code",
   "description": "Browse Langflow projects/flows and edit component code",
   "version": "0.0.1",
-  "publisher": "local",
+  "publisher": "smatioli",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smatiolids/langflow-vscode"
+  },
+  "icon": "./resources/langflow-vscode_2.png",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -55,6 +60,11 @@
     ],
     "menus": {
       "view/item/context": [
+        {
+          "command": "langflow.refresh",
+          "when": "view == langflowExplorer",
+          "group": "navigation"
+        },
         {
           "command": "langflow.openComponent",
           "when": "view == langflowExplorer && viewItem == langflowComponent",

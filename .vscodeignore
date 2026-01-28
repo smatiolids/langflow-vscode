@@ -9,3 +9,4 @@ samples/**
 *.log
 package-lock.json
 tsconfig.json
+.env
