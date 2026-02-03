@@ -380,9 +380,9 @@ async function openComponentCode(
 ) {
   await promptForPythonExtension();
 
-  const tempDir = await ensureTempDir();
+  const targetDir = await resolveComponentCodeDir();
   const safeName = sanitizeFileName(`${flowId}-${component.id || component.name}.py`);
-  const filePath = path.join(tempDir, safeName);
+  const filePath = path.join(targetDir, safeName);
   await fs.writeFile(filePath, component.code || "", "utf8");
 
   const uri = vscode.Uri.file(filePath);
@@ -421,6 +421,39 @@ async function ensureTempDir(): Promise<string> {
   const dir = path.join(os.tmpdir(), "langflow-vscode");
   await fs.mkdir(dir, { recursive: true });
   return dir;
+}
+
+async function resolveComponentCodeDir(): Promise<string> {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    return ensureTempDir();
+  }
+
+  const componentEditDir = path.join(workspaceFolder.uri.fsPath, "component_edit");
+  try {
+    await fs.access(componentEditDir);
+    return componentEditDir;
+  } catch {
+    const action = await vscode.window.showInformationMessage(
+      'The folder "component_edit" does not exist in the workspace. Create it for component code files?',
+      "Create Folder",
+      "Use Temp Folder"
+    );
+
+    if (action === "Create Folder") {
+      try {
+        await fs.mkdir(componentEditDir, { recursive: true });
+        return componentEditDir;
+      } catch (error) {
+        vscode.window.showWarningMessage(
+          `Could not create "component_edit". Saving in temp folder instead. ${getErrorMessage(error)}`
+        );
+        return ensureTempDir();
+      }
+    }
+
+    return ensureTempDir();
+  }
 }
 
 function sanitizeFileName(name: string): string {

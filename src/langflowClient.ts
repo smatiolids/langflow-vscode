@@ -16,7 +16,7 @@ export class LangflowClient {
   }
 
   async listProjects(): Promise<LangflowProject[]> {
-    const data = await this.request("/api/v1/projects");
+    const data = await this.request("/api/v1/projects/");
     const items = normalizeList(data);
     return items.map(this.toProject).sort((a, b) => a.name.localeCompare(b.name));
   }
