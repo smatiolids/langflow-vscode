@@ -28,9 +28,10 @@ export async function activate(context: vscode.ExtensionContext) {
   let baseUrl = config.get<string>("baseUrl", "http://localhost:3000");
   let venvPath = config.get<string>("venvPath", "");
   let currentApiKey = await context.secrets.get(API_KEY_SECRET);
+  let connectionSaved = false;
   const client = new LangflowClient(baseUrl, currentApiKey ?? undefined);
 
-  const explorerProvider = new LangflowExplorerProvider(client, state);
+  const explorerProvider = new LangflowExplorerProvider(client, state, () => connectionSaved);
   const documentProvider = new ComponentDocumentProvider();
   const connectionView = new LangflowConnectionView(baseUrl, Boolean(currentApiKey), venvPath);
   const propertiesView = new LangflowPropertiesView();
@@ -244,6 +245,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       client.configure(baseUrl, currentApiKey ?? undefined);
+      connectionSaved = true;
       connectionView.update(baseUrl, Boolean(currentApiKey), venvPath);
       explorerProvider.refresh();
     })

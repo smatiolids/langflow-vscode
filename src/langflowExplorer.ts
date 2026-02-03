@@ -15,7 +15,8 @@ export class LangflowExplorerProvider implements vscode.TreeDataProvider<Explore
 
   constructor(
     private readonly client: LangflowClient,
-    private readonly state: LangflowState
+    private readonly state: LangflowState,
+    private readonly canQuery: () => boolean
   ) {}
 
   refresh() {
@@ -23,6 +24,10 @@ export class LangflowExplorerProvider implements vscode.TreeDataProvider<Explore
   }
 
   async getChildren(element?: ExplorerNode): Promise<ExplorerNode[]> {
+    if (!this.canQuery()) {
+      return [];
+    }
+
     if (!element) {
       const projects = await this.client.listProjects();
       if (projects.length === 0) {
@@ -78,6 +83,10 @@ export class LangflowExplorerProvider implements vscode.TreeDataProvider<Explore
   }
 
   async selectFlow(project: LangflowProject | null, flow: LangflowFlow) {
+    if (!this.canQuery()) {
+      throw new Error("Save connection settings before loading flows.");
+    }
+
     const definition = await this.client.getFlow(flow.id);
     if (!definition) {
       throw new Error("Flow definition not found");

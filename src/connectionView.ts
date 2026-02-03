@@ -111,7 +111,7 @@ export class LangflowConnectionView implements vscode.WebviewViewProvider {
     <label for="venvPath">Langflow venv path</label>
     <input id="venvPath" name="venvPath" type="text" value="${escapedVenvPath}" />
 
-    <button type="submit">Save</button>
+    <button type="submit">Save and Connect</button>
     <div class="hint">Save to refresh projects and flows.</div>
   </form>
 
